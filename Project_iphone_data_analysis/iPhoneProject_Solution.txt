@@ -1,0 +1,231 @@
+Note : Read the iphone.csv dataset to pandas dataframe as "df"
+
+1 - The column names have spaces . rename the column names to have underscore '_' instead of space (try to do in one go instead of specifying each column nam in rename method)
+df.columns = df.columns.str.replace(' ', '_')
+
+
+2- start rating for some of the models is missing in the dataset. fill those missing values with the average rating all the models.
+
+
+# Calculate the average rating excluding None (missing values)
+average_rating = df['Star Rating'].mean(skipna=True)
+
+# Fill missing values with the calculated average rating
+df['Star Rating'].fillna(average_rating, inplace=True)
+
+# Display the modified DataFrame
+print(df)
+
+
+3- Now instead of filling missing values with avg rating of full dataset , fill with avg rating based on RAM. example :  if rating for a 2 gb phone is missing then take average of all other 2 gb phones rating and fill that value. 
+
+method 1:
+
+# Function to fill missing ratings based on RAM
+def fill_missing_rating(row):
+    if pd.isna(row['Star Rating']):
+        return average_ratings_by_ram.get(row['RAM'], None)
+    return row['Star Rating']
+
+# Apply the function to fill missing ratings
+df['Star Rating'] = df.apply(fill_missing_rating, axis=1)
+
+# Display the modified DataFrame
+print(df)
+
+method2:
+
+# Calculate the average rating for each RAM group
+average_ratings_by_ram = df.groupby('RAM')['Star Rating'].mean().reset_index()
+
+# Rename the 'Star Rating' column to 'Average Rating' for clarity
+average_ratings_by_ram.rename(columns={'Star Rating': 'Average Rating'}, inplace=True)
+
+# Perform a left join to fill missing ratings based on RAM
+df = df.merge(average_ratings_by_ram, on='RAM', how='left')
+
+# Fill missing ratings with the calculated average ratings
+df['Star Rating'].fillna(df['Average Rating'], inplace=True)
+
+# Drop the 'Average Rating' column if not needed
+df.drop(columns=['Average Rating'], inplace=True)
+
+# Display the modified DataFrame
+print(df)
+
+
+4- create a new column in the dataframe "Discount_Percentage" based on MRP and sale value
+
+df['Discount_Percentage'] = ((df['MRP'] - df['Sale Price']) / df['MRP']) * 100
+
+
+
+5- which model has highest percent discount ?
+
+sorted_df = df.sort_values(by='Discount_Percentage', ascending=False)
+
+# Get the model with the highest discount and its corresponding percentage
+model_with_highest_discount = sorted_df.iloc[0]['Product Name']
+highest_discount_percentage = sorted_df.iloc[0]['Discount_Percentage']
+
+6- find total no of models  each space configuration (128 GB , 64 GB etc)
+space_configuration_counts = df['RAM'].value_counts()
+
+# Rename the columns for clarity
+space_configuration_counts.columns = ['Space Configuration', 'Total Models']
+
+# Display the result
+print(space_configuration_counts)
+
+
+7- find total number of models for each color 
+
+# Define a function to extract color based on a pattern
+def extract_color(product_name):
+    # Split the product name by '(' and ')' to get parts within parentheses
+    parts = product_name.split('(')
+    if len(parts) > 1:
+        # Check if the second part contains a comma (,) to identify color
+        color_part = parts[1].strip()
+        if ',' in color_part:
+            color = color_part.split(',')[0].strip()
+            return color
+    return None
+
+# Apply the extract_color function to create a 'Color' column
+df['Color'] = df['Product Name'].apply(extract_color)
+
+# Count the number of models for each color
+color_counts = df['Color'].value_counts().reset_index()
+
+# Rename the columns for clarity
+color_counts.columns = ['Color', 'Total Models']
+
+# Display the result
+print(color_counts)
+
+
+8- find total number of models by iphone version : eg
+iphone 8:  9
+iphone XR : 5
+
+so on..
+
+# Define a function to extract iPhone version
+def extract_iphone_version(product_name):
+    # Split the product name by 'iPhone' and get the part after 'iPhone'
+    parts = product_name.split('iPhone')
+    if len(parts) > 1:
+        version = parts[1].strip().split(' ')[0]
+        return 'iPhone ' + version
+    return None
+
+# Apply the extract_iphone_version function to create an 'iPhone Version' column
+df['iPhone Version'] = df['Product Name'].apply(extract_iphone_version)
+
+# Count the number of models for each iPhone version
+iphone_version_counts = df['iPhone Version'].value_counts().reset_index()
+
+# Rename the columns for clarity
+iphone_version_counts.columns = ['iPhone Version', 'Total Models']
+
+# Display the result
+print(iphone_version_counts)
+
+
+9- list top 5 models having highest no of reviews 
+
+# Sort the DataFrame by 'Number Of Reviews' in descending order
+df_sorted = df.sort_values(by='Number Of Reviews', ascending=False)
+
+# Select the top 5 models with the highest number of reviews
+top_5_models = df_sorted.head(5)
+
+# Display the result
+print(top_5_models)
+
+
+10 - what is the price diffrence between highest price and lowest price iphone (based on mrp)
+
+# Find the highest and lowest MRP values
+highest_mrp = df['Mrp'].max()
+lowest_mrp = df['Mrp'].min()
+
+# Calculate the price difference
+price_difference = highest_mrp - lowest_mrp
+
+
+11 - find total no of reviews for iphone 11 and iphone 12 category . Output should have only 2 rows (for 11 and 12).
+method1:
+
+# Categorize products based on 'Product Name' using str.contains
+df['iPhone Category'] = 'Other'
+df.loc[df['Product Name'].str.contains('iPhone 11', case=False), 'iPhone Category'] = 'iPhone 11'
+df.loc[df['Product Name'].str.contains('iPhone 12', case=False), 'iPhone Category'] = 'iPhone 12'
+
+# Group by 'iPhone Category' and calculate the total number of reviews for each category
+category_reviews = df.groupby('iPhone Category')['Number Of Reviews'].sum().reset_index()
+
+# Filter for 'iPhone 11' and 'iPhone 12' categories
+result_df = category_reviews[category_reviews['iPhone Category'].isin(['iPhone 11', 'iPhone 12'])]
+
+# Display the result
+print(result_df)
+In this code, we use str.contains to categorize products based on the 'Product Name' column without using lambda or numpy. The rest of the process remains the same, resulting in a DataFrame with two rows for 'iPhone 11' and 'iPhone 12' categories.
+
+
+method2:
+
+# Filter the DataFrame for iPhone 11 and iPhone 12 categories
+iphone_11_reviews = df[df['Product Name'].str.contains('iPhone 11', case=False)]
+iphone_12_reviews = df[df['Product Name'].str.contains('iPhone 12', case=False)]
+
+# Calculate the total number of reviews for each category
+total_reviews_11 = iphone_11_reviews['Number Of Reviews'].sum()
+total_reviews_12 = iphone_12_reviews['Number Of Reviews'].sum()
+
+# Create a new DataFrame with the results
+result_df = pd.DataFrame({
+    'iPhone Category': ['iPhone 11', 'iPhone 12'],
+    'Total Reviews': [total_reviews_11, total_reviews_12]
+})
+
+
+
+12- which iphone has 3rd highest MRP
+
+# Sort the DataFrame by 'Mrp' column in descending order and reset the index
+sorted_df = df.sort_values(by='Mrp', ascending=False).reset_index(drop=True)
+
+# Get the iPhone with the 3rd highest MRP
+third_highest_mrp_iphone = sorted_df.loc[2]
+
+# Print the details of the iPhone with the 3rd highest MRP
+print(third_highest_mrp_iphone)
+
+
+`
+13- what is the average mrp of iphones which costs above 100,000
+
+# Filter the DataFrame to include only iPhones with MRP above 100,000
+high_mrp_iphones = df[df['Mrp'] > 100000]
+
+# Calculate the average MRP for the filtered iPhones
+average_mrp = high_mrp_iphones['Mrp'].mean()
+
+# Print the average MRP
+print(average_mrp)
+
+
+14- which iphone with 128 GB space has highest ratings to review ratio
+
+# Filter the DataFrame to include only iPhones with 128 GB of space
+iphone_128gb = df[df['Ram'] == '128 GB']
+
+# Calculate the ratings-to-reviews ratio for each iPhone
+iphone_128gb['Ratings to Reviews Ratio'] = iphone_128gb['Number Of Ratings'] / iphone_128gb['Number Of Reviews']
+
+# Find the iPhone with the highest ratings-to-reviews ratio
+highest_ratio_iphone = iphone_128gb.loc[iphone_128gb['Ratings to Reviews Ratio'].idxmax()]
+
+
